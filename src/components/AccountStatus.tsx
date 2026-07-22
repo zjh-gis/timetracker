@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { clearUserData } from "@/lib/storage";
@@ -26,11 +27,13 @@ export function AccountStatus({ userId, name, email }: AccountStatusProps) {
 
   return (
     <div className="account-status" aria-label="当前登录账号">
-      <span className="account-status-dot" aria-hidden="true" />
-      <div>
-        <small>已登录 · {name}</small>
-        <strong title={email}>{email}</strong>
-      </div>
+      <Link className="account-status-profile" href="/account" aria-label="打开账号设置">
+        <span className="account-status-dot" aria-hidden="true" />
+        <span className="account-status-copy">
+          <small>已登录 · {name}</small>
+          <strong title={email}>{email}</strong>
+        </span>
+      </Link>
       <button type="button" disabled={busy} onClick={signOut}>
         {busy ? "退出中…" : "退出"}
       </button>

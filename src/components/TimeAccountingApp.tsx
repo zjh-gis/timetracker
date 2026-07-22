@@ -8,7 +8,6 @@ import { CalendarView } from "./CalendarView";
 import { EntryList } from "./EntryList";
 import { StatsView } from "./StatsView";
 import { SyncPanel } from "./SyncPanel";
-import { AccountPanel } from "./AccountPanel";
 import { AccountStatus } from "./AccountStatus";
 
 type AppTab = "today" | "calendar" | "stats";
@@ -480,8 +479,6 @@ export function TimeAccountingApp({ userId, userName, userEmail }: TimeAccountin
           setCategoryId(syncedData.categories[0]?.id ?? "work");
         }}
       />
-
-      {tab === "today" && <AccountPanel userId={userId} email={userEmail} />}
 
       <nav className="tab-bar" aria-label="主导航">
         {(
