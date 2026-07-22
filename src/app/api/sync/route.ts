@@ -1,4 +1,4 @@
-import type { PoolClient } from "pg";
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import { auth } from "@/lib/auth";
 import { pool } from "@/lib/db";
 import { assertProductionEnvironment } from "@/lib/server-env";
@@ -11,6 +11,23 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
+
+type SyncStateRow = RowDataPacket & { revision: number | string; updated_at: Date };
+type CategoryRow = RowDataPacket & {
+  id: string; name: string; color: string; is_primary_work: number;
+};
+type TaskRow = RowDataPacket & {
+  id: string; name: string; category_id: string; created_at: Date;
+};
+type EntryRow = RowDataPacket & {
+  id: string; date: string; started_at: Date | null; ended_at: Date | null;
+  duration_seconds: number; title: string; task_id: string | null;
+  category_id: string; note: string; created_at: Date; updated_at: Date;
+};
+type TimerRow = RowDataPacket & {
+  task_id: string; title: string; category_id: string; note: string;
+  started_at: Date; running_since: Date | null; accumulated_seconds: number;
+};
 
 export async function POST(request: Request) {
   assertProductionEnvironment();
@@ -35,37 +52,38 @@ export async function POST(request: Request) {
   } catch {
     return Response.json({ error: "请求格式无效" }, { status: 400 });
   }
+
   const data = normalizeData(body.data);
   if (!data || !validData(data)) {
     return Response.json({ error: "时间数据格式无效或超过数量限制" }, { status: 400 });
   }
 
-  const client = await pool.connect();
+  const connection = await pool.getConnection();
   try {
-    await client.query("BEGIN");
-    await client.query(
-      `INSERT INTO time_sync_state (user_id, revision) VALUES ($1, 0) ON CONFLICT DO NOTHING`,
+    await connection.beginTransaction();
+    await connection.execute(
+      `INSERT IGNORE INTO time_sync_state (user_id, revision) VALUES (?, 0)`,
       [session.user.id],
     );
-    const stateResult = await client.query<{ revision: string; updated_at: Date }>(
-      `SELECT revision, updated_at FROM time_sync_state WHERE user_id = $1 FOR UPDATE`,
+    const [stateRows] = await connection.execute<SyncStateRow[]>(
+      `SELECT revision, updated_at FROM time_sync_state WHERE user_id = ? FOR UPDATE`,
       [session.user.id],
     );
-    const state = stateResult.rows[0];
-    if (!state) throw new Error("sync state missing after upsert");
+    const state = stateRows[0];
+    if (!state) throw new Error("sync state missing after insert");
     const currentRevision = Number(state.revision);
 
     if (currentRevision === 0) {
       const syncedAt = new Date();
-      await writeData(client, session.user.id, data, syncedAt);
-      await updateRevision(client, session.user.id, 1, syncedAt);
-      await client.query("COMMIT");
+      await writeData(connection, session.user.id, data, syncedAt);
+      await updateRevision(connection, session.user.id, 1, syncedAt);
+      await connection.commit();
       return noStore({ ok: true, revision: 1, data, syncedAt: syncedAt.toISOString() });
     }
 
     if (!body.hasLocalChanges) {
-      const remote = await readData(client, session.user.id, state.updated_at);
-      await client.query("COMMIT");
+      const remote = await readData(connection, session.user.id, state.updated_at);
+      await connection.commit();
       return noStore({
         ok: true,
         revision: currentRevision,
@@ -77,14 +95,14 @@ export async function POST(request: Request) {
     if (body.force || body.baseRevision === currentRevision) {
       const nextRevision = currentRevision + 1;
       const syncedAt = new Date();
-      await writeData(client, session.user.id, data, syncedAt);
-      await updateRevision(client, session.user.id, nextRevision, syncedAt);
-      await client.query("COMMIT");
+      await writeData(connection, session.user.id, data, syncedAt);
+      await updateRevision(connection, session.user.id, nextRevision, syncedAt);
+      await connection.commit();
       return noStore({ ok: true, revision: nextRevision, data, syncedAt: syncedAt.toISOString() });
     }
 
-    const remote = await readData(client, session.user.id, state.updated_at);
-    await client.query("COMMIT");
+    const remote = await readData(connection, session.user.id, state.updated_at);
+    await connection.commit();
     return noStore(
       {
         ok: false,
@@ -96,111 +114,154 @@ export async function POST(request: Request) {
       { status: 409 },
     );
   } catch (error) {
-    await client.query("ROLLBACK");
+    await connection.rollback();
     console.error("sync failed", error);
     return Response.json({ error: "同步失败，请稍后重试" }, { status: 500 });
   } finally {
-    client.release();
+    connection.release();
   }
 }
 
-async function updateRevision(client: PoolClient, userId: string, revision: number, syncedAt: Date) {
-  await client.query(
-    `UPDATE time_sync_state SET revision = $2, updated_at = $3 WHERE user_id = $1`,
-    [userId, revision, syncedAt],
+async function updateRevision(
+  connection: PoolConnection,
+  userId: string,
+  revision: number,
+  syncedAt: Date,
+) {
+  await connection.execute(
+    `UPDATE time_sync_state SET revision = ?, updated_at = ? WHERE user_id = ?`,
+    [revision, syncedAt, userId],
   );
 }
 
-async function writeData(client: PoolClient, userId: string, data: TimeAccountingData, now: Date) {
-  await client.query(`UPDATE time_categories SET deleted_at = $2 WHERE user_id = $1`, [userId, now]);
-  await client.query(`UPDATE time_tasks SET deleted_at = $2 WHERE user_id = $1`, [userId, now]);
-  await client.query(`UPDATE time_entries SET deleted_at = $2 WHERE user_id = $1`, [userId, now]);
+async function writeData(
+  connection: PoolConnection,
+  userId: string,
+  data: TimeAccountingData,
+  now: Date,
+) {
+  await connection.execute(`UPDATE time_categories SET deleted_at = ? WHERE user_id = ?`, [now, userId]);
+  await connection.execute(`UPDATE time_tasks SET deleted_at = ? WHERE user_id = ?`, [now, userId]);
+  await connection.execute(`UPDATE time_entries SET deleted_at = ? WHERE user_id = ?`, [now, userId]);
 
   for (const category of data.categories) {
-    await client.query(
+    await connection.execute(
       `INSERT INTO time_categories
        (user_id, id, name, color, is_primary_work, updated_at, deleted_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NULL)
-       ON CONFLICT (user_id, id) DO UPDATE SET
-       name = EXCLUDED.name, color = EXCLUDED.color,
-       is_primary_work = EXCLUDED.is_primary_work, updated_at = EXCLUDED.updated_at, deleted_at = NULL`,
+       VALUES (?, ?, ?, ?, ?, ?, NULL) AS incoming
+       ON DUPLICATE KEY UPDATE
+       name = incoming.name, color = incoming.color,
+       is_primary_work = incoming.is_primary_work,
+       updated_at = incoming.updated_at, deleted_at = NULL`,
       [userId, category.id, category.name, category.color, category.isPrimaryWork, now],
     );
   }
+
   for (const task of data.tasks) {
-    await client.query(
+    await connection.execute(
       `INSERT INTO time_tasks
        (user_id, id, name, category_id, created_at, updated_at, deleted_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NULL)
-       ON CONFLICT (user_id, id) DO UPDATE SET
-       name = EXCLUDED.name, category_id = EXCLUDED.category_id,
-       updated_at = EXCLUDED.updated_at, deleted_at = NULL`,
-      [userId, task.id, task.name, task.categoryId, task.createdAt, now],
+       VALUES (?, ?, ?, ?, ?, ?, NULL) AS incoming
+       ON DUPLICATE KEY UPDATE
+       name = incoming.name, category_id = incoming.category_id,
+       updated_at = incoming.updated_at, deleted_at = NULL`,
+      [userId, task.id, task.name, task.categoryId, mysqlDate(task.createdAt), now],
     );
   }
+
   for (const entry of data.entries) {
-    await client.query(
+    await connection.execute(
       `INSERT INTO time_entries
        (user_id, id, date, started_at, ended_at, duration_seconds, title,
         task_id, category_id, note, created_at, updated_at, deleted_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULL)
-       ON CONFLICT (user_id, id) DO UPDATE SET
-       date = EXCLUDED.date, started_at = EXCLUDED.started_at,
-       ended_at = EXCLUDED.ended_at, duration_seconds = EXCLUDED.duration_seconds,
-       title = EXCLUDED.title, task_id = EXCLUDED.task_id,
-       category_id = EXCLUDED.category_id, note = EXCLUDED.note,
-       updated_at = EXCLUDED.updated_at, deleted_at = NULL`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL) AS incoming
+       ON DUPLICATE KEY UPDATE
+       date = incoming.date, started_at = incoming.started_at,
+       ended_at = incoming.ended_at, duration_seconds = incoming.duration_seconds,
+       title = incoming.title, task_id = incoming.task_id,
+       category_id = incoming.category_id, note = incoming.note,
+       updated_at = incoming.updated_at, deleted_at = NULL`,
       [
-        userId, entry.id, entry.date, entry.startedAt, entry.endedAt,
-        entry.durationSeconds, entry.title, entry.taskId, entry.categoryId,
-        entry.note, entry.createdAt, entry.updatedAt,
+        userId,
+        entry.id,
+        entry.date,
+        mysqlDate(entry.startedAt),
+        mysqlDate(entry.endedAt),
+        entry.durationSeconds,
+        entry.title,
+        entry.taskId,
+        entry.categoryId,
+        entry.note,
+        mysqlDate(entry.createdAt),
+        mysqlDate(entry.updatedAt),
       ],
     );
   }
 
-  await client.query(`DELETE FROM time_active_timers WHERE user_id = $1`, [userId]);
+  await connection.execute(`DELETE FROM time_active_timers WHERE user_id = ?`, [userId]);
   if (data.activeTimer) {
     const timer = data.activeTimer;
-    await client.query(
+    await connection.execute(
       `INSERT INTO time_active_timers
        (user_id, task_id, title, category_id, note, started_at,
         running_since, accumulated_seconds, updated_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        userId, timer.taskId, timer.title, timer.categoryId, timer.note,
-        timer.startedAt, timer.runningSince, timer.accumulatedSeconds, now,
+        userId,
+        timer.taskId,
+        timer.title,
+        timer.categoryId,
+        timer.note,
+        mysqlDate(timer.startedAt),
+        mysqlDate(timer.runningSince),
+        timer.accumulatedSeconds,
+        now,
       ],
     );
   }
 }
 
-async function readData(client: PoolClient, userId: string, updatedAt: Date): Promise<TimeAccountingData> {
-  const categoryRows = await client.query<{
-    id: string; name: string; color: string; is_primary_work: boolean;
-  }>(`SELECT id, name, color, is_primary_work FROM time_categories WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at`, [userId]);
-  const taskRows = await client.query<{
-    id: string; name: string; category_id: string; created_at: Date;
-  }>(`SELECT id, name, category_id, created_at FROM time_tasks WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at`, [userId]);
-  const entryRows = await client.query<{
-    id: string; date: string; started_at: Date | null; ended_at: Date | null;
-    duration_seconds: number; title: string; task_id: string | null;
-    category_id: string; note: string; created_at: Date; updated_at: Date;
-  }>(`SELECT id, date::text, started_at, ended_at, duration_seconds, title,
+async function readData(
+  connection: PoolConnection,
+  userId: string,
+  updatedAt: Date,
+): Promise<TimeAccountingData> {
+  const [categoryRows] = await connection.execute<CategoryRow[]>(
+    `SELECT id, name, color, is_primary_work
+     FROM time_categories WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at`,
+    [userId],
+  );
+  const [taskRows] = await connection.execute<TaskRow[]>(
+    `SELECT id, name, category_id, created_at
+     FROM time_tasks WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at`,
+    [userId],
+  );
+  const [entryRows] = await connection.execute<EntryRow[]>(
+    `SELECT id, DATE_FORMAT(date, '%Y-%m-%d') AS date,
+      started_at, ended_at, duration_seconds, title,
       task_id, category_id, note, created_at, updated_at
-      FROM time_entries WHERE user_id = $1 AND deleted_at IS NULL ORDER BY created_at DESC`, [userId]);
-  const timerRows = await client.query<{
-    task_id: string; title: string; category_id: string; note: string;
-    started_at: Date; running_since: Date | null; accumulated_seconds: number;
-  }>(`SELECT task_id, title, category_id, note, started_at, running_since, accumulated_seconds
-      FROM time_active_timers WHERE user_id = $1`, [userId]);
+     FROM time_entries WHERE user_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
+    [userId],
+  );
+  const [timerRows] = await connection.execute<TimerRow[]>(
+    `SELECT task_id, title, category_id, note, started_at, running_since, accumulated_seconds
+     FROM time_active_timers WHERE user_id = ?`,
+    [userId],
+  );
 
-  const categories: Category[] = categoryRows.rows.map((row) => ({
-    id: row.id, name: row.name, color: row.color, isPrimaryWork: row.is_primary_work,
+  const categories: Category[] = categoryRows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    color: row.color,
+    isPrimaryWork: Boolean(row.is_primary_work),
   }));
-  const tasks: Task[] = taskRows.rows.map((row) => ({
-    id: row.id, name: row.name, categoryId: row.category_id, createdAt: row.created_at.toISOString(),
+  const tasks: Task[] = taskRows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    categoryId: row.category_id,
+    createdAt: row.created_at.toISOString(),
   }));
-  const entries: TimeEntry[] = entryRows.rows.map((row) => ({
+  const entries: TimeEntry[] = entryRows.map((row) => ({
     id: row.id,
     date: row.date,
     startedAt: row.started_at?.toISOString() ?? null,
@@ -213,7 +274,7 @@ async function readData(client: PoolClient, userId: string, updatedAt: Date): Pr
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
   }));
-  const timerRow = timerRows.rows[0];
+  const timerRow = timerRows[0];
   const activeTimer: ActiveTimer | null = timerRow
     ? {
         taskId: timerRow.task_id,
@@ -225,20 +286,44 @@ async function readData(client: PoolClient, userId: string, updatedAt: Date): Pr
         accumulatedSeconds: timerRow.accumulated_seconds,
       }
     : null;
+
   return { version: 2, categories, tasks, entries, activeTimer, updatedAt: updatedAt.toISOString() };
+}
+
+function mysqlDate(value: string | null) {
+  if (value === null) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error("invalid date in sync data");
+  return date;
 }
 
 function validData(data: TimeAccountingData) {
   if (data.categories.length > 100 || data.tasks.length > 2_000 || data.entries.length > 20_000) return false;
   const shortText = (value: unknown, max: number) => typeof value === "string" && value.length <= max;
+  const optionalDate = (value: unknown) => value === null || (
+    typeof value === "string" && Number.isFinite(Date.parse(value))
+  );
   return (
     data.categories.every((item) => shortText(item.id, 128) && shortText(item.name, 200) && shortText(item.color, 32)) &&
-    data.tasks.every((item) => shortText(item.id, 128) && shortText(item.name, 200) && shortText(item.categoryId, 128)) &&
+    data.tasks.every((item) =>
+      shortText(item.id, 128) && shortText(item.name, 200) && shortText(item.categoryId, 128) &&
+      typeof item.createdAt === "string" && Number.isFinite(Date.parse(item.createdAt)),
+    ) &&
     data.entries.every((item) =>
       shortText(item.id, 128) && shortText(item.title, 200) && shortText(item.note, 2_000) &&
       shortText(item.categoryId, 128) && /^\d{4}-\d{2}-\d{2}$/.test(item.date) &&
+      optionalDate(item.startedAt) && optionalDate(item.endedAt) &&
+      typeof item.createdAt === "string" && Number.isFinite(Date.parse(item.createdAt)) &&
+      typeof item.updatedAt === "string" && Number.isFinite(Date.parse(item.updatedAt)) &&
       Number.isInteger(item.durationSeconds) && item.durationSeconds >= 0,
-    )
+    ) &&
+    (!data.activeTimer || (
+      shortText(data.activeTimer.taskId, 128) && shortText(data.activeTimer.title, 200) &&
+      shortText(data.activeTimer.categoryId, 128) && shortText(data.activeTimer.note, 2_000) &&
+      typeof data.activeTimer.startedAt === "string" && Number.isFinite(Date.parse(data.activeTimer.startedAt)) &&
+      optionalDate(data.activeTimer.runningSince) && Number.isInteger(data.activeTimer.accumulatedSeconds) &&
+      data.activeTimer.accumulatedSeconds >= 0
+    ))
   );
 }
 

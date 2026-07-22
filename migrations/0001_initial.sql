@@ -1,118 +1,133 @@
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE TABLE IF NOT EXISTS `user` (
+  `id` varchar(36) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `emailVerified` tinyint(1) NOT NULL DEFAULT 0,
+  `image` text NULL,
+  `createdAt` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_email_unique` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS "user" (
-  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "name" text NOT NULL,
-  "email" text NOT NULL UNIQUE,
-  "emailVerified" boolean NOT NULL DEFAULT false,
-  "image" text,
-  "createdAt" timestamptz NOT NULL DEFAULT now(),
-  "updatedAt" timestamptz NOT NULL DEFAULT now()
-);
+CREATE TABLE IF NOT EXISTS `session` (
+  `id` varchar(36) NOT NULL,
+  `expiresAt` datetime(3) NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `createdAt` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `ipAddress` varchar(255) NULL,
+  `userAgent` text NULL,
+  `userId` varchar(36) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `session_token_unique` (`token`),
+  KEY `session_userId_idx` (`userId`),
+  CONSTRAINT `session_user_fk` FOREIGN KEY (`userId`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS "session" (
-  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "expiresAt" timestamptz NOT NULL,
-  "token" text NOT NULL UNIQUE,
-  "createdAt" timestamptz NOT NULL DEFAULT now(),
-  "updatedAt" timestamptz NOT NULL DEFAULT now(),
-  "ipAddress" text,
-  "userAgent" text,
-  "userId" uuid NOT NULL REFERENCES "user"("id") ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS "session_userId_idx" ON "session" ("userId");
+CREATE TABLE IF NOT EXISTS `account` (
+  `id` varchar(36) NOT NULL,
+  `accountId` varchar(255) NOT NULL,
+  `providerId` varchar(255) NOT NULL,
+  `userId` varchar(36) NOT NULL,
+  `accessToken` text NULL,
+  `refreshToken` text NULL,
+  `idToken` text NULL,
+  `accessTokenExpiresAt` datetime(3) NULL,
+  `refreshTokenExpiresAt` datetime(3) NULL,
+  `scope` text NULL,
+  `password` text NULL,
+  `createdAt` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `account_provider_unique` (`providerId`, `accountId`),
+  KEY `account_userId_idx` (`userId`),
+  CONSTRAINT `account_user_fk` FOREIGN KEY (`userId`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS "account" (
-  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "accountId" text NOT NULL,
-  "providerId" text NOT NULL,
-  "userId" uuid NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
-  "accessToken" text,
-  "refreshToken" text,
-  "idToken" text,
-  "accessTokenExpiresAt" timestamptz,
-  "refreshTokenExpiresAt" timestamptz,
-  "scope" text,
-  "password" text,
-  "createdAt" timestamptz NOT NULL DEFAULT now(),
-  "updatedAt" timestamptz NOT NULL DEFAULT now(),
-  UNIQUE ("providerId", "accountId")
-);
-CREATE INDEX IF NOT EXISTS "account_userId_idx" ON "account" ("userId");
+CREATE TABLE IF NOT EXISTS `verification` (
+  `id` varchar(36) NOT NULL,
+  `identifier` varchar(255) NOT NULL,
+  `value` text NOT NULL,
+  `expiresAt` datetime(3) NOT NULL,
+  `createdAt` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  KEY `verification_identifier_idx` (`identifier`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS "verification" (
-  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "identifier" text NOT NULL,
-  "value" text NOT NULL,
-  "expiresAt" timestamptz NOT NULL,
-  "createdAt" timestamptz NOT NULL DEFAULT now(),
-  "updatedAt" timestamptz NOT NULL DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS "verification_identifier_idx" ON "verification" ("identifier");
+CREATE TABLE IF NOT EXISTS `time_sync_state` (
+  `user_id` varchar(36) NOT NULL,
+  `revision` bigint unsigned NOT NULL DEFAULT 0,
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`user_id`),
+  CONSTRAINT `time_sync_state_user_fk` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS "time_sync_state" (
-  "user_id" uuid PRIMARY KEY REFERENCES "user"("id") ON DELETE CASCADE,
-  "revision" bigint NOT NULL DEFAULT 0,
-  "updated_at" timestamptz NOT NULL DEFAULT now()
-);
+CREATE TABLE IF NOT EXISTS `time_categories` (
+  `user_id` varchar(36) NOT NULL,
+  `id` varchar(128) NOT NULL,
+  `name` varchar(200) NOT NULL,
+  `color` varchar(32) NOT NULL,
+  `is_primary_work` tinyint(1) NOT NULL DEFAULT 0,
+  `created_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `deleted_at` datetime(3) NULL,
+  PRIMARY KEY (`user_id`, `id`),
+  CONSTRAINT `time_categories_user_fk` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS "time_categories" (
-  "user_id" uuid NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
-  "id" text NOT NULL,
-  "name" text NOT NULL,
-  "color" text NOT NULL,
-  "is_primary_work" boolean NOT NULL DEFAULT false,
-  "created_at" timestamptz NOT NULL DEFAULT now(),
-  "updated_at" timestamptz NOT NULL DEFAULT now(),
-  "deleted_at" timestamptz,
-  PRIMARY KEY ("user_id", "id")
-);
+CREATE TABLE IF NOT EXISTS `time_tasks` (
+  `user_id` varchar(36) NOT NULL,
+  `id` varchar(128) NOT NULL,
+  `name` varchar(200) NOT NULL,
+  `category_id` varchar(128) NOT NULL,
+  `created_at` datetime(3) NOT NULL,
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `deleted_at` datetime(3) NULL,
+  PRIMARY KEY (`user_id`, `id`),
+  KEY `time_tasks_user_category_idx` (`user_id`, `category_id`),
+  CONSTRAINT `time_tasks_user_fk` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS "time_tasks" (
-  "user_id" uuid NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
-  "id" text NOT NULL,
-  "name" text NOT NULL,
-  "category_id" text NOT NULL,
-  "created_at" timestamptz NOT NULL,
-  "updated_at" timestamptz NOT NULL DEFAULT now(),
-  "deleted_at" timestamptz,
-  PRIMARY KEY ("user_id", "id")
-);
-CREATE INDEX IF NOT EXISTS "time_tasks_user_category_idx" ON "time_tasks" ("user_id", "category_id");
+CREATE TABLE IF NOT EXISTS `time_entries` (
+  `user_id` varchar(36) NOT NULL,
+  `id` varchar(128) NOT NULL,
+  `date` date NOT NULL,
+  `started_at` datetime(3) NULL,
+  `ended_at` datetime(3) NULL,
+  `duration_seconds` int unsigned NOT NULL,
+  `title` varchar(200) NOT NULL,
+  `task_id` varchar(128) NULL,
+  `category_id` varchar(128) NOT NULL,
+  `note` text NOT NULL,
+  `created_at` datetime(3) NOT NULL,
+  `updated_at` datetime(3) NOT NULL,
+  `deleted_at` datetime(3) NULL,
+  PRIMARY KEY (`user_id`, `id`),
+  KEY `time_entries_user_date_idx` (`user_id`, `date`),
+  KEY `time_entries_user_updated_idx` (`user_id`, `updated_at`),
+  CONSTRAINT `time_entries_user_fk` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS "time_entries" (
-  "user_id" uuid NOT NULL REFERENCES "user"("id") ON DELETE CASCADE,
-  "id" text NOT NULL,
-  "date" date NOT NULL,
-  "started_at" timestamptz,
-  "ended_at" timestamptz,
-  "duration_seconds" integer NOT NULL CHECK ("duration_seconds" >= 0),
-  "title" text NOT NULL,
-  "task_id" text,
-  "category_id" text NOT NULL,
-  "note" text NOT NULL DEFAULT '',
-  "created_at" timestamptz NOT NULL,
-  "updated_at" timestamptz NOT NULL,
-  "deleted_at" timestamptz,
-  PRIMARY KEY ("user_id", "id")
-);
-CREATE INDEX IF NOT EXISTS "time_entries_user_date_idx" ON "time_entries" ("user_id", "date");
-CREATE INDEX IF NOT EXISTS "time_entries_user_updated_idx" ON "time_entries" ("user_id", "updated_at");
+CREATE TABLE IF NOT EXISTS `time_active_timers` (
+  `user_id` varchar(36) NOT NULL,
+  `task_id` varchar(128) NOT NULL,
+  `title` varchar(200) NOT NULL,
+  `category_id` varchar(128) NOT NULL,
+  `note` text NOT NULL,
+  `started_at` datetime(3) NOT NULL,
+  `running_since` datetime(3) NULL,
+  `accumulated_seconds` int unsigned NOT NULL DEFAULT 0,
+  `updated_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`user_id`),
+  CONSTRAINT `time_active_timers_user_fk` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS "time_active_timers" (
-  "user_id" uuid PRIMARY KEY REFERENCES "user"("id") ON DELETE CASCADE,
-  "task_id" text NOT NULL,
-  "title" text NOT NULL,
-  "category_id" text NOT NULL,
-  "note" text NOT NULL DEFAULT '',
-  "started_at" timestamptz NOT NULL,
-  "running_since" timestamptz,
-  "accumulated_seconds" integer NOT NULL DEFAULT 0,
-  "updated_at" timestamptz NOT NULL DEFAULT now()
-);
+CREATE TABLE IF NOT EXISTS `schema_migrations` (
+  `name` varchar(255) NOT NULL,
+  `applied_at` datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE IF NOT EXISTS "schema_migrations" (
-  "name" text PRIMARY KEY,
-  "applied_at" timestamptz NOT NULL DEFAULT now()
-);
-INSERT INTO "schema_migrations" ("name") VALUES ('0001_initial') ON CONFLICT DO NOTHING;
+INSERT IGNORE INTO `schema_migrations` (`name`) VALUES ('0001_initial');
