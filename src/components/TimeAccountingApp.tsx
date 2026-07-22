@@ -3,12 +3,13 @@
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { defaultData, loadData, normalizeData, saveData } from "@/lib/storage";
 import { activeSeconds, formatDuration, localDateKey } from "@/lib/time";
-import type { ActiveTimer, Task, TimeAccountingData, TimeEntry } from "@/lib/types";
+import type { ActiveTimer, Category, Task, TimeAccountingData, TimeEntry } from "@/lib/types";
 import { CalendarView } from "./CalendarView";
 import { EntryList } from "./EntryList";
 import { StatsView } from "./StatsView";
 import { SyncPanel } from "./SyncPanel";
 import { AccountPanel } from "./AccountPanel";
+import { AccountStatus } from "./AccountStatus";
 
 type AppTab = "today" | "calendar" | "stats";
 
@@ -40,15 +41,19 @@ function timerForTask(task: Task, startedAt: string): ActiveTimer {
   };
 }
 
-type TimeAccountingAppProps = { userId: string; userEmail: string };
+type TimeAccountingAppProps = { userId: string; userName: string; userEmail: string };
 
-export function TimeAccountingApp({ userId, userEmail }: TimeAccountingAppProps) {
+export function TimeAccountingApp({ userId, userName, userEmail }: TimeAccountingAppProps) {
   const [data, setData] = useState<TimeAccountingData>(defaultData);
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<AppTab>("today");
   const [newTaskName, setNewTaskName] = useState("");
   const [categoryId, setCategoryId] = useState("work");
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryColor, setNewCategoryColor] = useState("#6b5aa6");
+  const [newCategoryIsPrimary, setNewCategoryIsPrimary] = useState(false);
   const [now, setNow] = useState(0);
   const [notice, setNotice] = useState("");
   const importRef = useRef<HTMLInputElement>(null);
@@ -121,6 +126,31 @@ export function TimeAccountingApp({ userId, userEmail }: TimeAccountingAppProps)
     setNewTaskName("");
     setShowTaskForm(false);
     setNotice(`已创建“${name}”，点击它即可开始。`);
+  }
+
+  function createCategory() {
+    const name = newCategoryName.trim();
+    if (!name) {
+      setNotice("先填写分类名称。");
+      return;
+    }
+    if (data.categories.some((category) => category.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      setNotice("已经有同名分类，可以直接选择。");
+      return;
+    }
+    const category: Category = {
+      id: crypto.randomUUID(),
+      name,
+      color: newCategoryColor,
+      isPrimaryWork: newCategoryIsPrimary,
+    };
+    update((current) => ({ ...current, categories: [...current.categories, category] }));
+    setCategoryId(category.id);
+    setNewCategoryName("");
+    setNewCategoryColor("#6b5aa6");
+    setNewCategoryIsPrimary(false);
+    setShowCategoryForm(false);
+    setNotice(`已添加分类“${name}”。`);
   }
 
   function clickTask(task: Task) {
@@ -230,9 +260,7 @@ export function TimeAccountingApp({ userId, userEmail }: TimeAccountingAppProps)
           <h1>时迹</h1>
           <p className="subtitle">点一下开始，再点一下结束。</p>
         </div>
-        <div className="privacy-badge">
-          <span /> 本地优先 · 可选同步
-        </div>
+        <AccountStatus userId={userId} name={userName} email={userEmail} />
       </header>
 
       {data.activeTimer && (
@@ -301,6 +329,46 @@ export function TimeAccountingApp({ userId, userEmail }: TimeAccountingAppProps)
                     ))}
                   </select>
                 </label>
+                <button
+                  className="category-toggle"
+                  type="button"
+                  onClick={() => setShowCategoryForm((visible) => !visible)}
+                >
+                  {showCategoryForm ? "收起分类设置" : "＋ 添加自定义分类"}
+                </button>
+                {showCategoryForm && (
+                  <div className="category-form">
+                    <label className="field">
+                      <span>分类名称</span>
+                      <input
+                        value={newCategoryName}
+                        onChange={(event) => setNewCategoryName(event.target.value)}
+                        onKeyDown={(event) => event.key === "Enter" && createCategory()}
+                        placeholder="例如：健身"
+                        maxLength={200}
+                      />
+                    </label>
+                    <label className="color-field">
+                      <span>识别颜色</span>
+                      <input
+                        type="color"
+                        value={newCategoryColor}
+                        onChange={(event) => setNewCategoryColor(event.target.value)}
+                      />
+                    </label>
+                    <label className="primary-check">
+                      <input
+                        type="checkbox"
+                        checked={newCategoryIsPrimary}
+                        onChange={(event) => setNewCategoryIsPrimary(event.target.checked)}
+                      />
+                      <span>计入“主要工作”统计</span>
+                    </label>
+                    <button className="button secondary" type="button" onClick={createCategory}>
+                      添加并选中
+                    </button>
+                  </div>
+                )}
                 <div className="form-actions">
                   <button className="button secondary" onClick={() => setShowTaskForm(false)}>
                     取消

@@ -1,5 +1,13 @@
 import nodemailer from "nodemailer";
 
+const EMAIL_DEDUPLICATION_MS = 60_000;
+const globalEmailState = globalThis as typeof globalThis & {
+  recentTransactionalEmails?: Map<string, number>;
+};
+const recentTransactionalEmails =
+  globalEmailState.recentTransactionalEmails ?? new Map<string, number>();
+globalEmailState.recentTransactionalEmails = recentTransactionalEmails;
+
 type TransactionalEmail = {
   to: string;
   subject: string;
@@ -25,8 +33,28 @@ export async function sendTransactionalEmail(message: TransactionalEmail) {
     port: Number(process.env.SMTP_PORT ?? 465),
     secure: process.env.SMTP_SECURE !== "false",
     auth: { user, pass: password },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
   });
-  await transporter.sendMail({ from, ...message });
+
+  const deliveryKey = `${message.to.trim().toLocaleLowerCase()}:${message.subject}`;
+  const now = Date.now();
+  for (const [key, sentAt] of recentTransactionalEmails) {
+    if (now - sentAt >= EMAIL_DEDUPLICATION_MS) recentTransactionalEmails.delete(key);
+  }
+  const lastSentAt = recentTransactionalEmails.get(deliveryKey) ?? 0;
+  if (now - lastSentAt < EMAIL_DEDUPLICATION_MS) return;
+
+  recentTransactionalEmails.set(deliveryKey, now);
+  try {
+    await transporter.sendMail({ from, ...message });
+  } catch (error) {
+    if (recentTransactionalEmails.get(deliveryKey) === now) {
+      recentTransactionalEmails.delete(deliveryKey);
+    }
+    throw error;
+  }
 }
 
 export function linkEmail(to: string, subject: string, intro: string, url: string) {

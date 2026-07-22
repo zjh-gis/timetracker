@@ -35,6 +35,13 @@ h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 25px; lette
 .subtitle { color: var(--muted); margin: 13px 0 0; }
 .privacy-badge { display: flex; align-items: center; gap: 8px; padding-top: 5px; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .privacy-badge span { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(39,103,73,.12); }
+.account-status { display: grid; grid-template-columns: 8px minmax(0,1fr) auto; align-items: center; gap: 10px; max-width: min(360px, 52vw); padding: 9px 10px 9px 13px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,253,247,.76); }
+.account-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(39,103,73,.12); }
+.account-status > div { min-width: 0; display: flex; flex-direction: column; }
+.account-status small { color: var(--muted); font-size: 10px; }
+.account-status strong { overflow: hidden; margin-top: 2px; font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+.account-status button { padding: 6px 8px; border: 0; border-radius: 8px; color: var(--green); background: #e7efe9; font-size: 11px; font-weight: 700; }
+.account-status button:disabled { cursor: wait; opacity: .6; }
 
 .summary-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 14px; margin-bottom: 14px; }
 .summary-card, .timer-card, .tasks-card, .records-card, .backup-card, .sync-card, .panel-card { border: 1px solid var(--line); background: rgba(255,253,247,.8); box-shadow: 0 12px 30px rgba(47,53,47,.04); }
@@ -80,6 +87,14 @@ h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 25px; lette
 .add-task-button { border: 1px solid var(--line); border-radius: 11px; padding: 9px 12px; color: var(--green); background: var(--cream); font-weight: 700; font-size: 13px; }
 .task-form { margin: -6px 0 22px; padding: 18px; border: 1px solid var(--line); border-radius: 17px; background: #f7f4eb; }
 .task-form .field:last-of-type { margin-bottom: 0; }
+.category-toggle { padding: 0; border: 0; color: var(--green); background: transparent; font-size: 12px; font-weight: 700; }
+.category-form { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px; align-items: end; margin-top: 13px; padding: 14px; border: 1px dashed var(--line); border-radius: 13px; background: var(--cream); }
+.category-form .field { margin: 0; }
+.color-field { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }
+.color-field input { width: 48px; height: 48px; padding: 4px; border: 1px solid var(--line); border-radius: 11px; background: var(--cream); }
+.primary-check { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+.primary-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--green); }
+.category-form .button { grid-column: 1 / -1; min-height: 40px; }
 .form-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 16px; }
 .form-actions .button { min-height: 42px; }
 .empty-task { width: 100%; padding: 38px 20px; border: 1px dashed var(--line); border-radius: 16px; color: var(--ink); background: transparent; }
@@ -151,6 +166,7 @@ h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 25px; lette
 .account-note { margin: 16px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
 
 .auth-shell { display: grid; grid-template-columns: minmax(0, .9fr) minmax(340px, 470px); align-items: center; gap: clamp(32px, 8vw, 110px); width: min(100% - 40px, 1080px); min-height: 100svh; margin: auto; padding: 48px 0; }
+.auth-shell.single { grid-template-columns: minmax(0, 470px); justify-content: center; }
 .auth-brand h1 { margin: 6px 0 14px; font: 700 clamp(58px, 9vw, 104px)/1 Georgia, "Songti SC", serif; color: var(--green-dark); letter-spacing: -.05em; }
 .auth-brand > p:last-child { max-width: 420px; margin: 0; color: var(--muted); font-size: clamp(16px, 2vw, 20px); line-height: 1.8; }
 .auth-card { padding: clamp(26px, 5vw, 42px); border: 1px solid rgba(216,213,202,.9); border-radius: 26px; background: rgba(255,253,247,.92); box-shadow: 0 24px 65px rgba(31,41,36,.11); }
@@ -163,6 +179,17 @@ h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 25px; lette
 .auth-card .field small { color: var(--muted); line-height: 1.5; }
 .auth-card .full { width: 100%; min-height: 48px; margin-top: 4px; }
 .auth-message { padding: 11px 13px; border-radius: 10px; color: var(--green-dark); background: #edf4ef; font-size: 13px; line-height: 1.55; }
+.verification-pending, .verification-result { text-align: center; }
+.verification-pending h3 { margin: 14px 0 8px; font: 700 22px Georgia, "Songti SC", serif; }
+.verification-pending > p, .verification-result > p:last-of-type { color: var(--muted); line-height: 1.7; }
+.verification-pending strong { overflow-wrap: anywhere; color: var(--ink); }
+.verification-icon { display: grid; width: 58px; height: 58px; place-items: center; margin: 0 auto; border-radius: 50%; color: white; background: var(--green); font-size: 27px; font-weight: 700; }
+.verification-icon.failed { background: var(--red); }
+.verification-hint { font-size: 12px; }
+.verification-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 20px; }
+.verification-result .eyebrow { margin-top: 18px; }
+.verification-result h2 { margin-bottom: 12px; }
+.verification-enter { display: grid; place-items: center; margin-top: 24px; color: white !important; text-decoration: none; }
 .auth-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px 20px; margin-top: 20px; }
 .auth-links button { padding: 0; border: 0; color: var(--green); background: transparent; font-size: 13px; }
 .auth-consent { margin: 18px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
@@ -256,6 +283,7 @@ h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 25px; lette
   .shell { width: min(100% - 20px, 760px); padding-top: 24px; }
   .hero { display: block; margin-bottom: 24px; }
   .privacy-badge { margin-top: 20px; }
+  .account-status { max-width: 100%; margin-top: 20px; }
   .summary-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .summary-card { min-height: 126px; padding: 16px; border-radius: 17px; }
   .summary-card strong { font-size: clamp(22px, 7vw, 32px); }
@@ -268,6 +296,7 @@ h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 25px; lette
   .active-strip > time { font-size: 15px; }
   .active-strip > button { grid-column: 1 / -1; }
   .task-grid { grid-template-columns: 1fr; }
+  .category-form { grid-template-columns: minmax(0,1fr) auto; }
   .task-start { min-height: 122px; }
   .sync-card { border-radius: 20px; }
   .account-card { border-radius: 20px; }

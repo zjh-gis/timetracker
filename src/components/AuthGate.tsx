@@ -12,6 +12,7 @@ export function AuthGate() {
     <TimeAccountingApp
       key={session.user.id}
       userId={session.user.id}
+      userName={session.user.name}
       userEmail={session.user.email}
     />
   );

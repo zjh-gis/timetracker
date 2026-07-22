@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
-type AuthMode = "sign-in" | "sign-up" | "forgot";
+type AuthMode = "sign-in" | "sign-up" | "forgot" | "verify";
 
 export function AuthScreen() {
   const [mode, setMode] = useState<AuthMode>("sign-in");
@@ -14,6 +14,16 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [accepted, setAccepted] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
+  const [resendAvailableIn, setResendAvailableIn] = useState(0);
+
+  useEffect(() => {
+    if (resendAvailableIn <= 0) return;
+    const timer = window.setInterval(() => {
+      setResendAvailableIn((seconds) => Math.max(0, seconds - 1));
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, [resendAvailableIn]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -25,10 +35,19 @@ export function AuthScreen() {
           name: name.trim() || email.split("@")[0],
           email: email.trim(),
           password,
-          callbackURL: "/",
+          callbackURL: "/email-verified",
         });
         if (result.error) throw new Error(result.error.message);
-        setMessage("注册申请已提交，请打开邮箱完成验证后登录。");
+        setSubmittedEmail(email.trim());
+        setResendAvailableIn(60);
+      } else if (mode === "verify") {
+        const result = await authClient.sendVerificationEmail({
+          email: email.trim(),
+          callbackURL: "/email-verified",
+        });
+        if (result.error) throw new Error(result.error.message);
+        setSubmittedEmail(email.trim());
+        setResendAvailableIn(60);
       } else if (mode === "forgot") {
         const result = await authClient.requestPasswordReset({
           email: email.trim(),
@@ -55,6 +74,24 @@ export function AuthScreen() {
     setMode(next);
     setPassword("");
     setMessage("");
+    setSubmittedEmail("");
+    setResendAvailableIn(0);
+  }
+
+  async function resendVerification() {
+    setBusy(true);
+    setMessage("");
+    const result = await authClient.sendVerificationEmail({
+      email: submittedEmail,
+      callbackURL: "/email-verified",
+    });
+    setBusy(false);
+    if (result.error) {
+      setMessage(result.error.message ?? "重新发送失败，请稍后重试");
+      return;
+    }
+    setResendAvailableIn(60);
+    setMessage("验证邮件已重新发送，请勿重复点击。");
   }
 
   return (
@@ -67,9 +104,25 @@ export function AuthScreen() {
       <section className="auth-card">
         <div>
           <p className="eyebrow">ACCOUNT</p>
-          <h2>{mode === "sign-in" ? "登录" : mode === "sign-up" ? "创建账号" : "重置密码"}</h2>
+          <h2>{mode === "sign-in" ? "登录" : mode === "sign-up" ? "创建账号" : mode === "verify" ? "重发验证邮件" : "重置密码"}</h2>
         </div>
-        <form onSubmit={submit}>
+        {submittedEmail ? (
+          <div className="verification-pending" role="status">
+            <span className="verification-icon" aria-hidden="true">✉</span>
+            <h3>验证邮件已经发送</h3>
+            <p>请前往 <strong>{submittedEmail}</strong> 查收邮件，并点击其中的确认链接。</p>
+            <p className="verification-hint">若收件箱中没有，请检查垃圾邮件；一分钟后仍未收到可手动重发。</p>
+            {message && <p className="auth-message">{message}</p>}
+            <div className="verification-actions">
+              <button className="button secondary" type="button" disabled={busy || resendAvailableIn > 0} onClick={resendVerification}>
+                {busy ? "正在发送…" : resendAvailableIn > 0 ? `${resendAvailableIn} 秒后可重发` : "重新发送"}
+              </button>
+              <button className="button primary" type="button" onClick={() => switchMode("sign-in")}>
+                返回登录
+              </button>
+            </div>
+          </div>
+        ) : <form onSubmit={submit}>
           {mode === "sign-up" && (
             <label className="field">
               <span>称呼</span>
@@ -87,7 +140,7 @@ export function AuthScreen() {
               maxLength={254}
             />
           </label>
-          {mode !== "forgot" && (
+          {(mode === "sign-in" || mode === "sign-up") && (
             <label className="field">
               <span>密码</span>
               <input
@@ -109,16 +162,17 @@ export function AuthScreen() {
             </label>
           )}
           <button className="button primary full" disabled={busy}>
-            {busy ? "请稍候…" : mode === "sign-in" ? "登录" : mode === "sign-up" ? "注册并验证邮箱" : "发送重置邮件"}
+            {busy ? "请稍候…" : mode === "sign-in" ? "登录" : mode === "sign-up" ? "注册并验证邮箱" : mode === "verify" ? "发送验证邮件" : "发送重置邮件"}
           </button>
-        </form>
-        {message && <p className="auth-message" role="status">{message}</p>}
-        <div className="auth-links">
+        </form>}
+        {!submittedEmail && message && <p className="auth-message" role="status">{message}</p>}
+        {!submittedEmail && <div className="auth-links">
           {mode !== "sign-in" && <button type="button" onClick={() => switchMode("sign-in")}>返回登录</button>}
           {mode === "sign-in" && <button type="button" onClick={() => switchMode("sign-up")}>创建账号</button>}
+          {mode === "sign-in" && <button type="button" onClick={() => switchMode("verify")}>重发验证邮件</button>}
           {mode === "sign-in" && <button type="button" onClick={() => switchMode("forgot")}>忘记密码</button>}
-        </div>
-        {mode !== "sign-up" && <p className="auth-consent"><Link href="/terms">用户协议</Link> · <Link href="/privacy">隐私政策</Link></p>}
+        </div>}
+        {!submittedEmail && mode !== "sign-up" && <p className="auth-consent"><Link href="/terms">用户协议</Link> · <Link href="/privacy">隐私政策</Link></p>}
       </section>
     </main>
   );
