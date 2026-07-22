@@ -1,6 +1,10 @@
 import type { ActiveTimer, Category, Task, TimeAccountingData, TimeEntry } from "./types";
 
-export const STORAGE_KEY = "time-accounting-data-v1";
+export const LEGACY_STORAGE_KEY = "time-accounting-data-v1";
+
+function storageKey(userId: string) {
+  return `time-accounting-data-v2:${userId}`;
+}
 
 const DEFAULT_DATA: TimeAccountingData = {
   version: 2,
@@ -19,13 +23,22 @@ export function defaultData(): TimeAccountingData {
   return structuredClone(DEFAULT_DATA);
 }
 
-export function loadData(): TimeAccountingData {
-  const raw = window.localStorage.getItem(STORAGE_KEY);
+export function loadData(userId: string): TimeAccountingData {
+  const key = storageKey(userId);
+  const ownRaw = window.localStorage.getItem(key);
+  const legacyRaw = ownRaw ? null : window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  const raw = ownRaw ?? legacyRaw;
   if (!raw) return defaultData();
 
   try {
     const parsed: unknown = JSON.parse(raw);
-    return normalizeData(parsed) ?? defaultData();
+    const normalized = normalizeData(parsed);
+    if (!normalized) return defaultData();
+    if (legacyRaw) {
+      window.localStorage.setItem(key, JSON.stringify(normalized));
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    }
+    return normalized;
   } catch {
     // Invalid local data falls back to a safe empty document.
   }
@@ -94,6 +107,10 @@ export function normalizeData(candidate: unknown): TimeAccountingData | null {
   };
 }
 
-export function saveData(data: TimeAccountingData) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+export function saveData(data: TimeAccountingData, userId: string) {
+  window.localStorage.setItem(storageKey(userId), JSON.stringify(data));
+}
+
+export function clearUserData(userId: string) {
+  window.localStorage.removeItem(storageKey(userId));
 }

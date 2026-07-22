@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "时迹｜个人时间核算",
-  description: "在当前浏览器中记录和回顾真实的时间投入。",
+  description: "记录时间事实，并在电脑与手机之间安全同步",
 };
 
 export const viewport: Viewport = {
@@ -19,4 +19,3 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     </html>
   );
 }
-

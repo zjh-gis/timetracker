@@ -37,7 +37,7 @@ h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 25px; lette
 .privacy-badge span { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(39,103,73,.12); }
 
 .summary-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 14px; margin-bottom: 14px; }
-.summary-card, .timer-card, .tasks-card, .records-card, .backup-card, .panel-card { border: 1px solid var(--line); background: rgba(255,253,247,.8); box-shadow: 0 12px 30px rgba(47,53,47,.04); }
+.summary-card, .timer-card, .tasks-card, .records-card, .backup-card, .sync-card, .panel-card { border: 1px solid var(--line); background: rgba(255,253,247,.8); box-shadow: 0 12px 30px rgba(47,53,47,.04); }
 .summary-card { min-height: 144px; padding: 22px; border-radius: 20px; display: flex; flex-direction: column; }
 .summary-card.featured { background: var(--green); color: white; border-color: var(--green); }
 .summary-card > span { color: var(--muted); font-size: 13px; }
@@ -118,6 +118,66 @@ h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 25px; lette
 .backup-card p:last-child { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
 .backup-actions { display: flex; gap: 8px; flex-shrink: 0; }
 .text-button { border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 10px; padding: 9px 12px; font-size: 12px; }
+
+.sync-card { margin-bottom: 14px; padding: clamp(22px, 5vw, 30px); border-radius: 24px; }
+.sync-heading { align-items: center; margin-bottom: 18px; }
+.sync-heading h2 { font-size: 21px; }
+.sync-indicator { padding: 6px 10px; border-radius: 99px; color: var(--muted); background: #e7e5dc; font-size: 11px; }
+.sync-indicator.enabled { color: var(--green-dark); background: #e0eee5; }
+.sync-help { margin: 0 0 16px; color: var(--muted); font-size: 13px; line-height: 1.65; }
+.sync-code-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 9px; }
+.sync-code-row code { display: grid; min-height: 48px; place-items: center; padding: 0 12px; border: 1px dashed var(--green); border-radius: 12px; color: var(--green-dark); background: #edf4ef; font: 700 clamp(17px, 5vw, 22px) ui-monospace, monospace; letter-spacing: .08em; user-select: all; }
+.sync-actions { display: grid; grid-template-columns: 1fr; gap: 9px; margin-top: 12px; }
+.sync-actions .button { min-height: 44px; }
+.sync-actions .text-button { min-width: 64px; }
+.sync-status { min-height: 18px; margin: 13px 0 0; color: var(--muted); font-size: 11px; text-align: center; }
+.sync-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0 13px; color: var(--muted); font-size: 11px; }
+.sync-divider::before, .sync-divider::after { height: 1px; flex: 1; content: ""; background: var(--line); }
+.sync-connect-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 9px; }
+.sync-connect-row input { min-width: 0; height: 44px; padding: 0 13px; border: 1px solid var(--line); border-radius: 11px; color: var(--ink); background: var(--cream); font: 600 16px ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; }
+.sync-connect-row input:focus { border-color: var(--green); outline: 0; box-shadow: 0 0 0 3px rgba(39,103,73,.1); }
+.sync-conflict { margin-top: 14px; padding: 15px; border: 1px solid #dfb9b1; border-radius: 13px; background: #fbefec; }
+.sync-conflict strong { color: var(--red); }
+.sync-conflict p { margin: 7px 0 12px; color: #76544c; font-size: 12px; line-height: 1.55; }
+.sync-conflict > div { display: flex; gap: 8px; }
+.danger-text { color: var(--red); border-color: #dfb9b1; }
+.button:disabled, .text-button:disabled { cursor: wait; opacity: .6; }
+
+.account-card { margin-bottom: 84px; padding: clamp(22px, 5vw, 30px); border-radius: 24px; }
+.account-card h2 { margin: 4px 0 0; font-size: 21px; }
+.account-email { margin: 10px 0 22px; color: var(--muted); overflow-wrap: anywhere; }
+.account-actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.account-actions .danger { color: var(--red); border-color: #dfb9b1; }
+.account-note { margin: 16px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+.auth-shell { display: grid; grid-template-columns: minmax(0, .9fr) minmax(340px, 470px); align-items: center; gap: clamp(32px, 8vw, 110px); width: min(100% - 40px, 1080px); min-height: 100svh; margin: auto; padding: 48px 0; }
+.auth-brand h1 { margin: 6px 0 14px; font: 700 clamp(58px, 9vw, 104px)/1 Georgia, "Songti SC", serif; color: var(--green-dark); letter-spacing: -.05em; }
+.auth-brand > p:last-child { max-width: 420px; margin: 0; color: var(--muted); font-size: clamp(16px, 2vw, 20px); line-height: 1.8; }
+.auth-card { padding: clamp(26px, 5vw, 42px); border: 1px solid rgba(216,213,202,.9); border-radius: 26px; background: rgba(255,253,247,.92); box-shadow: 0 24px 65px rgba(31,41,36,.11); }
+.auth-card h2 { margin: 6px 0 24px; font: 700 28px Georgia, "Songti SC", serif; }
+.auth-card form { display: grid; gap: 16px; }
+.auth-card .field { display: grid; gap: 7px; }
+.auth-card .field > span { font-size: 13px; font-weight: 700; }
+.auth-card .field input { width: 100%; height: 48px; padding: 0 13px; border: 1px solid var(--line); border-radius: 11px; color: var(--ink); background: var(--cream); }
+.auth-card .field input:focus { border-color: var(--green); outline: 0; box-shadow: 0 0 0 3px rgba(39,103,73,.1); }
+.auth-card .field small { color: var(--muted); line-height: 1.5; }
+.auth-card .full { width: 100%; min-height: 48px; margin-top: 4px; }
+.auth-message { padding: 11px 13px; border-radius: 10px; color: var(--green-dark); background: #edf4ef; font-size: 13px; line-height: 1.55; }
+.auth-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 9px 20px; margin-top: 20px; }
+.auth-links button { padding: 0; border: 0; color: var(--green); background: transparent; font-size: 13px; }
+.auth-consent { margin: 18px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
+.auth-card a, .legal-page a { color: var(--green); }
+.consent-check { display: grid; grid-template-columns: 18px minmax(0,1fr); gap: 9px; align-items: start; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.consent-check input { width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--green); }
+.auth-back { display: inline-block; margin-bottom: 18px; color: var(--green); text-decoration: none; }
+
+.legal-page { width: min(100% - 32px, 760px); margin: auto; padding: 54px 0 80px; }
+.legal-page > header { margin-bottom: 34px; }
+.legal-page h1 { margin: 8px 0; font: 700 clamp(34px, 6vw, 52px) Georgia, "Songti SC", serif; }
+.legal-page header p:last-child { color: var(--muted); }
+.legal-page section { padding: 22px 0; border-top: 1px solid var(--line); }
+.legal-page h2 { margin: 0 0 10px; font: 700 19px Georgia, "Songti SC", serif; }
+.legal-page section p { margin: 0; color: #48544d; line-height: 1.8; }
 
 .panel-card { border-radius: 24px; padding: clamp(22px, 5vw, 34px); margin-bottom: 84px; }
 .period-nav { display: grid; grid-template-columns: 42px minmax(0,1fr) 42px; align-items: center; gap: 12px; margin: 18px 0 22px; text-align: center; }
@@ -209,6 +269,12 @@ h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 25px; lette
   .active-strip > button { grid-column: 1 / -1; }
   .task-grid { grid-template-columns: 1fr; }
   .task-start { min-height: 122px; }
+  .sync-card { border-radius: 20px; }
+  .account-card { border-radius: 20px; }
+  .auth-shell { display: block; width: min(100% - 24px, 470px); padding: 28px 0 46px; }
+  .auth-brand { margin: 0 8px 28px; }
+  .auth-brand h1 { font-size: 54px; }
+  .auth-card { padding: 24px 20px; border-radius: 21px; }
   .panel-card { border-radius: 20px; margin-bottom: 78px; }
   .pie-layout { grid-template-columns: 1fr; justify-items: center; gap: 10px; }
   .slice-legend { width: 100%; }

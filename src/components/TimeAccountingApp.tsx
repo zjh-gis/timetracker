@@ -7,6 +7,8 @@ import type { ActiveTimer, Task, TimeAccountingData, TimeEntry } from "@/lib/typ
 import { CalendarView } from "./CalendarView";
 import { EntryList } from "./EntryList";
 import { StatsView } from "./StatsView";
+import { SyncPanel } from "./SyncPanel";
+import { AccountPanel } from "./AccountPanel";
 
 type AppTab = "today" | "calendar" | "stats";
 
@@ -38,7 +40,9 @@ function timerForTask(task: Task, startedAt: string): ActiveTimer {
   };
 }
 
-export function TimeAccountingApp() {
+type TimeAccountingAppProps = { userId: string; userEmail: string };
+
+export function TimeAccountingApp({ userId, userEmail }: TimeAccountingAppProps) {
   const [data, setData] = useState<TimeAccountingData>(defaultData);
   const [ready, setReady] = useState(false);
   const [tab, setTab] = useState<AppTab>("today");
@@ -51,17 +55,17 @@ export function TimeAccountingApp() {
 
   useEffect(() => {
     const hydrationTask = window.setTimeout(() => {
-      const stored = loadData();
+      const stored = loadData(userId);
       setData(stored);
       setCategoryId(stored.categories[0]?.id ?? "work");
       setReady(true);
     }, 0);
     return () => window.clearTimeout(hydrationTask);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
-    if (ready) saveData(data);
-  }, [data, ready]);
+    if (ready) saveData(data, userId);
+  }, [data, ready, userId]);
 
   useEffect(() => {
     const tick = () => setNow(Date.now());
@@ -227,7 +231,7 @@ export function TimeAccountingApp() {
           <p className="subtitle">点一下开始，再点一下结束。</p>
         </div>
         <div className="privacy-badge">
-          <span /> 数据仅在此浏览器
+          <span /> 本地优先 · 可选同步
         </div>
       </header>
 
@@ -398,6 +402,18 @@ export function TimeAccountingApp() {
           primaryCategoryIds={primaryIds}
         />
       )}
+
+      <SyncPanel
+        userId={userId}
+        data={data}
+        hidden={tab !== "today"}
+        onApplyData={(syncedData) => {
+          setData(syncedData);
+          setCategoryId(syncedData.categories[0]?.id ?? "work");
+        }}
+      />
+
+      {tab === "today" && <AccountPanel userId={userId} email={userEmail} />}
 
       <nav className="tab-bar" aria-label="主导航">
         {(

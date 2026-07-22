@@ -1,6 +1,5 @@
-import { TimeAccountingApp } from "@/components/TimeAccountingApp";
+import { AuthGate } from "@/components/AuthGate";
 
 export default function Home() {
-  return <TimeAccountingApp />;
+  return <AuthGate />;
 }
-

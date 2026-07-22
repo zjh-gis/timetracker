@@ -1,45 +1,57 @@
 # 时迹 Web App
 
-个人时间核算工具的独立前端项目。项目采用 Next.js 16 App Router 和静态导出，不依赖仓库根目录的服务端、Prisma 或 SQLite。
+“时迹”是一个移动端优先的个人时间核算工具，使用 Next.js 16、Better Auth 与 PostgreSQL 开发。
 
-当前核心流程：不限数量创建具体任务；点击任务开始计时，再次点击停止；点击其他任务可直接切换。刷新页面后运行状态会恢复。
+## 已实现
 
-底部导航提供三个主视图：
+- 创建不限数量的任务，点击任务开始、停止或切换计时；
+- 今日记录、日/月/年统计、分类与事项构成；
+- 月历和 00:00—24:00 单日时间轴；
+- 邮箱注册、邮箱验证、登录、找回密码、退出和账号注销；
+- 同一账号在电脑与手机间自动同步；
+- 浏览器离线副本及 JSON 导入、导出；
+- 用户数据按账号隔离，注销账号时由数据库级联删除。
 
-- 今日：任务面板、今日累计和记录列表；
-- 日历：月度时间分布与单日明细；
-- 统计：日/月/年汇总、分类或事项构成、趋势图。
+## 本地开发
 
-## 本地运行
-
-要求 Node.js 20.9 或更高版本。
+要求 Node.js 20.9 或更高版本，以及 PostgreSQL 14 或更高版本。
 
 ```bash
 npm install
+cp .env.example .env.local
+npm run db:migrate
 npm run dev
 ```
 
-浏览器打开 `http://localhost:3000`。如需在同一局域网的手机测试，可运行 `npm run dev -- --hostname 0.0.0.0`，再通过电脑的局域网 IP 和端口访问。
+开发环境未配置 SMTP 时，验证和重置链接会打印到服务端控制台。生产环境必须配置完整 SMTP 参数。
 
-## 检查与构建
+## 环境变量
+
+复制 [.env.example](./.env.example) 后填写：
+
+- `DATABASE_URL`：腾讯云 PostgreSQL 连接串；
+- `BETTER_AUTH_SECRET`：至少 32 字节的随机密钥；
+- `BETTER_AUTH_URL`：正式 HTTPS 地址，例如 `https://time.example.com`；
+- `BETTER_AUTH_TRUSTED_ORIGINS`：允许访问认证接口的完整来源；
+- `SMTP_*`：腾讯云邮件推送或其他 SMTP 服务参数；
+- `NEXT_PUBLIC_OPERATOR_NAME`、`NEXT_PUBLIC_SUPPORT_EMAIL`：协议展示的真实运营主体和联系邮箱。
+
+完整上线步骤见 [DEPLOYMENT.md](./DEPLOYMENT.md)，同步设计见 [SYNC.md](./SYNC.md)，上线核对项见 [LAUNCH_CHECKLIST.md](./LAUNCH_CHECKLIST.md)。
+
+## 检查与生产运行
 
 ```bash
 npm run lint
 npm run build
+npm start
 ```
 
-构建完成后，纯静态产物位于 `out/`，可部署到 Vercel、EdgeOne Pages、Cloudflare Pages、Netlify 或任何静态文件服务器。
-
-## 单独部署
-
-在托管平台导入代码仓库时，把项目根目录设置为：
-
-```text
-skill-discovery-experiments/02-time-accounting-tool/web-app
-```
-
-构建命令为 `npm run build`，静态输出目录为 `out`。Vercel 可直接识别 Next.js；其他静态托管平台按上述输出目录配置。
+这是带认证和 API 的 Node.js 应用，不能再以纯静态 `out/` 目录部署。生产环境应由进程管理器常驻运行，并由 Nginx 反向代理及终止 HTTPS。
 
 ## 数据与隐私
 
-时间记录保存在当前浏览器的 `localStorage`，不会因为部署网页代码而上传。不同设备不会自动同步；请使用页面底部的 JSON 导出和恢复功能迁移数据。
+- PostgreSQL 是跨设备数据的权威副本；每个浏览器保留当前账号的本地副本，短暂断网时仍能计时；
+- 密码由 Better Auth 进行单向哈希，应用不保存明文密码；
+- 邮箱、任务、时间记录和备注会上传到服务端；数据库管理员仍具备读取数据的能力；
+- JSON 导出是用户可自行保存的独立备份；
+- `/privacy/` 与 `/terms/` 是上线初稿，正式发布前需要由真实运营主体和法律专业人员复核。
