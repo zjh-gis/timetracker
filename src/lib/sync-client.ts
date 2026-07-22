@@ -43,6 +43,12 @@ export function hasMeaningfulLocalData(data: TimeAccountingData) {
   return data.tasks.length > 0 || data.entries.length > 0 || data.activeTimer !== null;
 }
 
+export function hasUnsyncedLocalChanges(userId: string, data: TimeAccountingData) {
+  if (!hasMeaningfulLocalData(data)) return false;
+  const settings = loadSyncSettings(userId);
+  return !settings.lastSyncedAt || settings.lastSyncedDataUpdatedAt !== data.updatedAt;
+}
+
 export async function requestSync(
   settings: SyncSettings,
   data: TimeAccountingData,

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { clearUserData, loadData } from "@/lib/storage";
-import { clearSyncSettings } from "@/lib/sync-client";
+import { clearSyncSettings, hasUnsyncedLocalChanges } from "@/lib/sync-client";
 
 type AccountPanelProps = { userId: string; name: string; email: string };
 
@@ -22,7 +22,11 @@ export function AccountPanel({ userId, name, email }: AccountPanelProps) {
   }
 
   async function signOut() {
-    if (!window.confirm("退出后会清除此设备上的本地副本，请先确认云同步已经完成。继续吗？")) return;
+    const hasUnsyncedChanges = hasUnsyncedLocalChanges(userId, loadData(userId));
+    const message = hasUnsyncedChanges
+      ? "检测到本机还有尚未同步到云端的任务或记录。建议点“取消”，返回首页完成云同步后再退出。\n\n仍要退出吗？本机副本会保留，下次使用此账号登录时仍可恢复。"
+      : "确定退出当前账号吗？本机数据副本会保留，下次使用此账号登录时仍可恢复。";
+    if (!window.confirm(message)) return;
     setBusyAction("sign-out");
     const result = await authClient.signOut();
     if (result.error) {
@@ -30,8 +34,6 @@ export function AccountPanel({ userId, name, email }: AccountPanelProps) {
       window.alert(result.error.message ?? "退出失败");
       return;
     }
-    clearUserData(userId);
-    clearSyncSettings(userId);
     window.location.assign("/");
   }
 
@@ -75,7 +77,7 @@ export function AccountPanel({ userId, name, email }: AccountPanelProps) {
       <div className="account-section">
         <div>
           <h3>数据与登录</h3>
-          <p>导出此设备上的完整 JSON 备份，或退出当前账号。</p>
+          <p>导出此设备上的完整 JSON 备份，或退出当前账号。退出不会删除本机副本；如有未同步的数据，系统会在退出前提醒。</p>
         </div>
         <div className="account-actions">
           <button className="text-button" type="button" onClick={exportData}>导出数据</button>
