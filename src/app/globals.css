@@ -44,6 +44,15 @@ h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 25px; lette
 .account-status-profile:hover strong { color: var(--green); }
 .account-status button { padding: 6px 8px; border: 0; border-radius: 8px; color: var(--green); background: #e7efe9; font-size: 11px; font-weight: 700; }
 .account-status button:disabled { cursor: wait; opacity: .6; }
+.origin-story { margin: -18px 0 22px; }
+.origin-story summary { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; border-radius: 10px; color: var(--green); font-size: 12px; font-weight: 700; cursor: pointer; list-style: none; }
+.origin-story summary::-webkit-details-marker { display: none; }
+.origin-story summary::after { content: "＋"; font-size: 14px; line-height: 1; }
+.origin-story[open] summary::after { content: "−"; }
+.origin-story summary:hover { background: rgba(39,103,73,.08); }
+.origin-story-content { margin-top: 8px; padding: clamp(22px, 5vw, 30px); border: 1px solid var(--line); border-radius: 20px; background: rgba(255,253,247,.82); box-shadow: 0 12px 30px rgba(47,53,47,.04); }
+.origin-story-content h2 { margin-bottom: 18px; }
+.origin-story-content > p:not(.eyebrow) { margin: 10px 0 0; color: #48544d; font-size: 14px; line-height: 1.85; }
 
 .summary-grid { display: grid; grid-template-columns: 1.35fr 1fr; gap: 14px; margin-bottom: 14px; }
 .summary-card, .timer-card, .tasks-card, .records-card, .backup-card, .sync-card, .panel-card { border: 1px solid var(--line); background: rgba(255,253,247,.8); box-shadow: 0 12px 30px rgba(47,53,47,.04); }
@@ -299,6 +308,8 @@ h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 25px; lette
   .hero { display: block; margin-bottom: 24px; }
   .privacy-badge { margin-top: 20px; }
   .account-status { max-width: 100%; margin-top: 20px; }
+  .origin-story { margin-top: -12px; }
+  .origin-story-content { border-radius: 17px; }
   .summary-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .summary-card { min-height: 126px; padding: 16px; border-radius: 17px; }
   .summary-card strong { font-size: clamp(22px, 7vw, 32px); }

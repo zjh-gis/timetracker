@@ -262,6 +262,22 @@ export function TimeAccountingApp({ userId, userName, userEmail }: TimeAccountin
         <AccountStatus userId={userId} name={userName} email={userEmail} />
       </header>
 
+      <details className="origin-story">
+        <summary>为什么做时迹？</summary>
+        <div className="origin-story-content">
+          <p className="eyebrow">WHY TIME TRACE</p>
+          <h2>为什么做时迹</h2>
+          <p>时迹的灵感来自《奇特的一生》以及柳比歇夫的时间记录法。</p>
+          <p>
+            柳比歇夫长期记录自己在不同事情上的实际投入。他记录时间，并不是为了把每一分钟都变成绩效，而是为了更清楚地认识自己的生活：时间去了哪里，真正重视的事情是什么，长期积累又带来了怎样的变化。
+          </p>
+          <p>
+            我也想尝试用这种方式感受时间的流逝。于是有了时迹——一个尽量简单的时间记录工具。点击任务开始，再次点击结束，让记录本身不成为负担。
+          </p>
+          <p>希望它帮助我们保存的不只是工时，还有一个人如何使用生命、发展兴趣和创造价值的真实轨迹。</p>
+        </div>
+      </details>
+
       {data.activeTimer && (
         <section className="active-strip">
           <div>
